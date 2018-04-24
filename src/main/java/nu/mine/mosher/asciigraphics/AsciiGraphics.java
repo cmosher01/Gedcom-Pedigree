@@ -165,12 +165,12 @@ public class AsciiGraphics {
     }
 
     public static int getGraphemeCount(final String text) {
-        int graphemeCount = 0;
-        BreakIterator graphemeCounter = BreakIterator.getCharacterInstance();
-        graphemeCounter.setText(text);
-        while (graphemeCounter.next() != BreakIterator.DONE)
-            graphemeCount++;
-        System.err.println("count of "+text+" = "+graphemeCount);
-        return graphemeCount;
+        return text.length();
+        //int graphemeCount = 0;
+        //BreakIterator graphemeCounter = BreakIterator.getCharacterInstance();
+        //graphemeCounter.setText(text);
+        //while (graphemeCounter.next() != BreakIterator.DONE)
+        //    graphemeCount++;
+        //return graphemeCount;
     }
 }
