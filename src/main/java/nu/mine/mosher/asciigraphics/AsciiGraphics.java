@@ -1,59 +1,42 @@
 package nu.mine.mosher.asciigraphics;
 
-import com.google.common.base.Strings;
-
+import com.google.common.collect.ArrayTable;
+import com.google.common.primitives.UnsignedInteger;
 import java.io.PrintWriter;
-import java.text.BreakIterator;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.IntStream;
 
-import static nu.mine.mosher.asciigraphics.Coords.xy;
+import static nu.mine.mosher.asciigraphics.Grapheme.gr;
 
 public class AsciiGraphics {
-    private static final String SPACE = " ";
+    private final ArrayTable<Integer, Integer, Grapheme> canvas;
 
-    private final List<StringBuilder> tab = new ArrayList<>();
 
-    public void debugPrint(final PrintWriter out) {
-        final int w = w();
-        final int h = h();
-        out.println("plane size: "+w+"x"+h);
-
-        out.print(" ");
-        int c = 0;
-        for (int i = 0; i < w; ++i) {
-            out.print(""+c++);
-            if (c >= 10) {
-                c = 0;
-            }
-        }
-        out.println();
-
-        c = 0;
-        for (final StringBuilder sb : this.tab) {
-            out.print(""+c++);
-            if (c >= 10) {
-                c = 0;
-            }
-            out.println(sb.toString()+"\u2592");
-        }
-
-        out.println("\u2592");
+    private void put(final Grapheme g, final Coords at) {
+        this.canvas.set(at.y().intValue(), at.x().intValue(), g);
     }
 
-    public void print(final PrintWriter out) {
-        this.tab.forEach(out::println);
+    private Grapheme at(final int x, final int y) {
+        return Optional.ofNullable(this.canvas.at(y, x)).orElse(gr('\u0020'));
     }
 
-    public void hString(final Coords at, final String s) {
-        if (s.isEmpty()) {
-            return;
-        }
+    private static Iterable<Integer> range(final int n) {
+        return () -> IntStream.range(0, n).iterator();
+    }
 
-        final Coords to = to(at, getGraphemeCount(s));
-        resize(to);
-        final StringBuilder row = this.tab.get(at.y());
-        row.replace(at.x(), to.x(), s);
+
+
+
+    public AsciiGraphics(final UnsignedInteger width, final UnsignedInteger height) {
+        this.canvas = ArrayTable.create(range(height.intValue()), range(width.intValue()));
+    }
+
+    public void hString(final Coords at, final List<Grapheme> s) {
+        Coords a = at;
+        for (final Grapheme g : s) {
+            put(g, a);
+            a = a.r();
+        }
     }
 
     public void hLine(final Coords at, final int length, final char c) {
@@ -61,116 +44,65 @@ public class AsciiGraphics {
     }
 
     public void hLine(final Coords at, final int length, final char c, final char start, final char end) {
-        final String s;
-        if (length <= 0) {
-            return;
-        } else if (length == 1) {
-            s = ""+c;
-        } else if (length == 2) {
-            s = ""+start+end;
+        // noinspection StatementWithEmptyBody
+        if (length == 0) {
+        } else if (length == 1 || length == -1) {
+            put(gr(c), at);
         } else {
-            assert 3 <= length;
-            s = ""+start+Strings.repeat("" + c, length-2)+end;
+            put(gr(start), at);
+            Coords a = at.h(length);
+            for (int i = 0; i < Math.abs(length)-2; ++i) {
+                put(gr(c), a);
+                a = a.h(length);
+            }
+            put(gr(end), a);
         }
-
-        final Coords to = to(at, length);
-        resize(to);
-        final StringBuilder row = this.tab.get(at.y());
-        row.replace(at.x(), to.x(), s);
     }
 
-    /* positive length is down, negative length is up  (+1 or -1 means plot one character, 0 does nothing) */
-    public void vLine(final Coords at, final int length, final char c) throws Coords.Invalid {
+    public void vLine(final Coords at, final int length, final char c) {
         vLine(at, length, c, c, c);
     }
 
-    public void vLine(final Coords at, final int length, final char c, final char start, final char end) throws Coords.Invalid {
+    public void vLine(final Coords at, final int length, final char c, final char start, final char end) {
+        // noinspection StatementWithEmptyBody
         if (length == 0) {
-            return;
-        }
-
-        final int d = Integer.signum(length);
-        for (int y = at.y(); y != at.y()+length; y += d) {
-            resize(xy(at.x()+1, y));
-            final StringBuilder row = this.tab.get(y);
-            final char chr;
-            if (y == at.y()) {
-                chr = start;
-            } else if (y == at.y()+length-d) {
-                chr = end;
-            } else {
-                chr = c;
+        } else if (length == 1 || length == -1) {
+            put(gr(c), at);
+        } else {
+            put(gr(start), at);
+            Coords a = at.v(length);
+            for (int i = 0; i < Math.abs(length)-2; ++i) {
+                put(gr(c), a);
+                a = a.v(length);
             }
-            row.setCharAt(at.x(), chr);
+            put(gr(end), a);
         }
     }
 
-
-    private Coords to(final Coords at, final int length) {
-        try {
-            return at.move(length, 0);
-        } catch (final Coords.Invalid cannotHappen) {
-            throw new IllegalStateException(cannotHappen);
+    public void debugPrint(final PrintWriter p) {
+        p.print(" ");
+        for (int c = 0; c < this.canvas.columnKeyList().size(); ++c) {
+            p.print(""+(c % 10));
         }
-    }
+        p.println();
 
-    private void resize(final Coords min) {
-        while (h() <= min.y()) {
-            this.tab.add(new StringBuilder());
+        final char TOMBSTONE = '\u220e';
+        for (int r = 0; r < this.canvas.rowKeyList().size(); ++r) {
+            p.print(""+(r % 10));
+            for (int c = 0; c < this.canvas.columnKeyList().size(); ++c) {
+                p.print(at(c, r));
+            }
+            p.println(TOMBSTONE);
         }
+        p.println(TOMBSTONE);
+    }
 
-        /*
-        example:
-
-        current length 2:
-          01
-          cc
-
-        start at x 5:
-          012345
-          cc...s
-
-        string of length 3:
-          01234567
-          cc...sss
-            ^^^^^^
-
-        so, need to append 6 chars:
-        ((5+1)-2)+(3-1)
-
-        ((x+1)-clen)+(slen-1)
-        x+1-clen+slen-1
-        x-clen+slen
-        x+slen-clen
-        (pass x+slen in x)
-         */
-        final StringBuilder row = this.tab.get(min.y());
-        final int needed = min.x() - getGraphemeCount(row.toString());
-        if (0 < needed) {
-            row.append(Strings.repeat(SPACE, needed));
+    public void print(final PrintWriter p) {
+        for (int r = 0; r < this.canvas.rowKeyList().size(); ++r) {
+            for (int c = 0; c < this.canvas.columnKeyList().size(); ++c) {
+                p.print(at(c, r));
+            }
+            p.println();
         }
-    }
-
-    private int h() {
-        return this.tab.size();
-    }
-
-    private int w() {
-        return this.tab
-            .stream()
-            .map(StringBuilder::length)
-            .mapToInt(Integer::intValue)
-            .max()
-            .orElse(0);
-    }
-
-    public static int getGraphemeCount(final String text) {
-        return text.length();
-        //int graphemeCount = 0;
-        //BreakIterator graphemeCounter = BreakIterator.getCharacterInstance();
-        //graphemeCounter.setText(text);
-        //while (graphemeCounter.next() != BreakIterator.DONE)
-        //    graphemeCount++;
-        //return graphemeCount;
     }
 }
