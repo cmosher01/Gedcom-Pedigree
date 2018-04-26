@@ -16,23 +16,33 @@ import static nu.mine.mosher.asciigraphics.Grapheme.grs;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class GedcomPedigree {
     public static void main(final String... args) throws IOException, InvalidLevel {
-        if (args.length != 2) {
-            throw new IllegalArgumentException("Usage: gedcom-pedigree input.ged generation-count");
+        if (args.length < 1) {
+            throw new IllegalArgumentException("Usage: gedcom-pedigree generation-count [input.ged  [@INDI@]]");
         }
-        final Path pathInput = Paths
-            .get(args[0])
-            .toRealPath();
-        final GedcomTree tree = Gedcom.readFile(new BufferedInputStream(Files.newInputStream(pathInput)));
-        new GedcomConcatenator(tree).concatenate();
-        final Loader loader = new Loader(tree, pathInput.toString());
-        loader.parse();
 
-        run(loader.getFirstPerson(), UnsignedInteger.valueOf(args[1]));
+        final Optional<Person> root;
+        if (args.length == 1) {
+            root = Optional.empty();
+        } else {
+            final Path pathInput = Paths.get(args[1]).toRealPath();
+            final GedcomTree tree = Gedcom.readFile(new BufferedInputStream(Files.newInputStream(pathInput)));
+            new GedcomConcatenator(tree).concatenate();
+            final Loader loader = new Loader(tree, pathInput.toString());
+            loader.parse();
+            if (args.length == 2) {
+                root = Optional.of(loader.getFirstPerson());
+            } else {
+                final String id = args[2].replaceAll("@", "");
+                root = Optional.of(loader.lookUpPerson(tree.getNode(id)));
+            }
+        }
+
+        run(root, UnsignedInteger.valueOf(args[0]));
 
         System.out.flush();
     }
 
-    private static void run(final Person root, final UnsignedInteger gens) {
+    private static void run(final Optional<Person> root, final UnsignedInteger gens) {
         if (gens.compareTo(UnsignedInteger.valueOf(2)) < 0) {
             throw new IllegalArgumentException("must have at least 2 generations");
         }
@@ -43,11 +53,11 @@ public class GedcomPedigree {
         int y = (h >> 1) - 1;
         int dy = 1 << (g - 1);
 
-        final int len = maxlen(root, 0, g);
+        final int len = root.map(person -> maxlen(person, 0, g)).orElse(25);
 
         final AsciiGraphics gr = new AsciiGraphics(UnsignedInteger.valueOf((g + 1) * (len + 2) - 1), UnsignedInteger.valueOf(h - 1));
 
-        genx(0, y, dy, Optional.of(root), len + 2, gr);
+        genx(0, y, dy, root, len + 2, gr);
 
 
 

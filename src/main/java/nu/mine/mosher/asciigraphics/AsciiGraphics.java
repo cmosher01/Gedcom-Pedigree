@@ -9,7 +9,12 @@ import java.util.stream.IntStream;
 import static nu.mine.mosher.asciigraphics.Grapheme.gr;
 
 public class AsciiGraphics {
+    private static final Grapheme SPACE = gr('\u0020');
+
+
+
     private final ArrayTable<Integer, Integer, Grapheme> canvas;
+
 
 
     private void put(final Grapheme g, final Coords at) {
@@ -17,7 +22,7 @@ public class AsciiGraphics {
     }
 
     private Grapheme at(final int x, final int y) {
-        return Optional.ofNullable(this.canvas.at(y, x)).orElse(gr('\u0020'));
+        return Optional.ofNullable(this.canvas.at(y, x)).orElse(SPACE);
     }
 
     private static Iterable<Integer> range(final int n) {
