@@ -1,8 +1,6 @@
 repositories {
     mavenCentral()
-    maven {
-        url = URI.create('http://mosher.mine.nu/nexus/repository/maven-public/')
-    }
+    jcenter()
 }
 
 apply plugin: 'java'
@@ -25,7 +23,6 @@ dependencies {
 
 group = 'nu.mine.mosher.gedcom'
 version = '1.0.0-SNAPSHOT'
-sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_9
 mainClassName = 'nu.mine.mosher.gedcom.GedcomPedigree'
 
 test {
